@@ -1,0 +1,2 @@
+# Feature-Selection-Summary
+Irrelevant and redundant features not only reduce the prediction performance of a classification model but can also increase the computational complexity. Feature selection methods are recognized as promising approaches in machine learning, and it is applied to identify the key features to reduce the computing time cost of the classification models and improve the prediction performance. 
