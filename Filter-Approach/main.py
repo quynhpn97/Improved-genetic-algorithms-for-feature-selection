@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
-import ranking_single_filter as SF
-
+import ranking_filter as SF
 # Read file by URL
 url = "http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat"
 data = pd.read_csv(url, header=None, sep = " ", )
