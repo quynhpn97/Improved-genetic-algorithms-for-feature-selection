@@ -1,3 +1,4 @@
+# Pham Nhu Quynh
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.feature_selection import f_classif
