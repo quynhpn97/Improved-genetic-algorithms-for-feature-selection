@@ -316,6 +316,7 @@ class MOGA:
         first_population = ga_init.initial(config_init, population_size)
         return cls(first_population)
 
+'''
 import numpy as np
 import pandas as pd
 import copy
@@ -352,3 +353,4 @@ config = {'population_size': 200, 'offspring_ratio': 0.75,
 'generations_number': 5, 'stop_criterion_depth': 5}
 
 R.generate_populations(config)
+'''
