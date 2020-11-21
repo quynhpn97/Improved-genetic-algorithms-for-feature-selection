@@ -268,7 +268,7 @@ class MPGA:
             print(type(population))
             first_GAs.append(population)
         return cls(first_GAs)
-
+'''
 from sklearn.preprocessing import MinMaxScaler
 # Read file by URL
 url = "http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat"
@@ -298,3 +298,4 @@ config_init = {
 }
 population = MPGA.gas_initialization(config_init, population_size = 100, gas_size=5)
 population.generate_gas(config)
+'''
