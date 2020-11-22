@@ -217,8 +217,9 @@ class MPGA:
             first_GAs = []
         self.GAs = first_GAs # [GA, GA, ..., GA]
         self.verbose = False
-        self._size_interact = 5 # Chosen random number: chromos GA interact chromos other GA
+        self._size_interact = 30 # Chosen random number: chromos GA interact chromos other GA
         self._best_fitness = max([i.best_fitness for i in self.GAs])
+        self.all_best_fitness = [self._best_fitness]
         self._best_solution = [i.best_solution for i in self.GAs][np.argmax([i.best_fitness for i in self.GAs])]
 
     def generate_next_gas(self, config):
@@ -230,24 +231,40 @@ class MPGA:
             chosen_id = random.choice([num for num in range(len(self.GAs)) if num != id])
             chosen_ga = self.GAs[chosen_id]._generations[-1]
             new_ga = self.interact_gas(ga, chosen_ga)
+            fitness_new_ga = [i._fitness for i in new_ga]
+            best_fitness_new_ga = np.max(np.asarray(fitness_new_ga))
             self.GAs[id]._generations.append(new_ga)
+            self.GAs[id]._all_best_fitness.append(best_fitness_new_ga)
+            if best_fitness_new_ga > self.GAs[id].best_fitness:
+                self.GAs[id].best_fitness = best_fitness_new_ga
+                self.GAs[id].best_solution = [new_ga[np.argmax(best_fitness_new_ga)]]
 
     def generate_gas(self, config):
-        for epoch in range(5):
+        self.generations_number = config['generations_number']
+        for epoch in range(self.generations_number):
+            print('Iteration: ', epoch)
             self.generate_next_gas(config)
             best_fitness = max([i.best_fitness for i in self.GAs])
+
+            self.all_best_fitness.append(best_fitness)
+
             if best_fitness > self._best_fitness:
+                print('improved : ', best_fitness)
                 self._best_fitness = best_fitness
                 self._best_solution = [i.best_solution for i in self.GAs][np.argmax([i.best_fitness for i in self.GAs])]
-            print(self._best_fitness)
+            else:
+                print('not improved: ', self._best_fitness)
+
+        return self._best_solution, self._best_fitness, self.all_best_fitness
 
     def interact_gas(self, ga, chosen_ga):
 
         fitness_chosen_ga = np.asarray([chromo._fitness for chromo in chosen_ga])
         fitness_chosen_ga /= np.sum(fitness_chosen_ga)
         best_chromosomes_indexes = np.random.choice(np.arange(len(fitness_chosen_ga)), size=self._size_interact, replace=False, p=fitness_chosen_ga)
+        new_ga = ga
         for id in best_chromosomes_indexes:
-            new_ga = ga + [chosen_ga[id]]
+            new_ga.append(chosen_ga[id])
         new_ga_fitness = np.asarray([chromo._fitness for chromo in new_ga])
 
         sorted_indexes = np.argsort(new_ga_fitness)
@@ -268,34 +285,3 @@ class MPGA:
             print(type(population))
             first_GAs.append(population)
         return cls(first_GAs)
-'''
-from sklearn.preprocessing import MinMaxScaler
-# Read file by URL
-url = "http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat"
-data = pd.read_csv(url, header=None, sep = " ", )
-FullFeatures = ['Att_'+str(i) for i in range(1, data.shape[1])]
-TargetFeature = ['Target']
-data.columns = FullFeatures + TargetFeature
-scaler = MinMaxScaler()
-scaler.fit(data[FullFeatures])
-data[FullFeatures] = scaler.transform(data[FullFeatures])
-
-
-config = {'population_size': 100, 'offspring_ratio': 0.5,
-'crossover_probability': 0.5,
-'selection_method': {'type': 'roulette_wheel', 'k': 10},
-'crossover_method': {'type': '1point', 'parameters': None},
-'mutation_probability': 0.1, 'mutation_ratio': 0.1,
-'generations_number': 20, 'stop_criterion_depth': 20}
-
-
-config_init = {
-    'FullFeatures': FullFeatures,
-    'TargetFeature': TargetFeature,
-    'Table': data,
-    'ScoreType': 'accuracy_score',
-    'InitMethod': 'random_init'
-}
-population = MPGA.gas_initialization(config_init, population_size = 100, gas_size=5)
-population.generate_gas(config)
-'''

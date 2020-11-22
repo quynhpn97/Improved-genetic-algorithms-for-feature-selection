@@ -135,14 +135,7 @@ class Population:
             parents.append(copy.deepcopy(generation[best_index]))
         return parents
 
-    def generate_next_population(self):
-
-        config = {'population_size': 100, 'offspring_ratio': 0.5,
-        'crossover_probability': 0.5,
-        'selection_method': {'type': 'roulette_wheel', 'k': 10},
-        'crossover_method': {'type': '1point', 'parameters': None},
-        'mutation_probability': 0.1, 'mutation_ratio': 0.1,
-        'generations_number': 20, 'stop_criterion_depth': 20}
+    def generate_next_population(self, config):
 
         self._offspring_number = int(self._population_size * config['offspring_ratio'])
         if self._offspring_number % 2 == 1:
@@ -257,10 +250,12 @@ class Population:
         print('Initial fitness: {}'.format(self._best_fitness))
         depth = 0
         for epoch in range(self._generations_number):
-            new_best_fitness = self.generate_next_population()
-            print('Generation {}: fitness {}'.format(epoch + 1, new_best_fitness))
-            if new_best_fitness < self._best_fitness:
+            new_best_fitness = self.generate_next_population(config)
+            print('\tGeneration {}: fitness {}'.format(epoch + 1, new_best_fitness))
+            if new_best_fitness > self._best_fitness:
                 if self.verbose > 0:
+                    self._best_fitness = new_best_fitness
+                    self._best_solution = self._generations_solution[-1]
                     print('\tFitness improved for {} generations'.format(depth))
                     depth = 0
                 depth += 1
@@ -268,100 +263,19 @@ class Population:
                     if self.verbose > 0:
                         print('**********STOP CRITERION DEPTH REACHED**********')
                     break
-            elif self._best_fitness - new_best_fitness < 1e-5:
-                self._best_solution = self._generations_solution[-1]
-                self._best_fitness = self._all_best_fitness[-1]
+            else:
                 depth += 1
                 if self.verbose > 0:
-                    print('\tFitness improved a little for {} generations'.format(depth))
+                    print('\tFitness not improved for {} generations'.format(depth))
                 if depth > self._stop_criterion_depth:
                     if self.verbose > 0:
                         print('**********STOP CRITERION DEPTH REACHED**********')
                     break
-            else:
-                self._best_solution = self._generations_solution[-1]
-                self._best_fitness = self._all_best_fitness[-1]
-                depth += 1
-                if self.verbose > 0:
-                    print('\tFitness not improved for {} generations'.format(depth))
         return self._best_solution, self._best_fitness, self._all_best_fitness
 
     @classmethod
-    def population_initialization(cls, config_init, population_size=100, genes_number: int = None):
+    def population_initialization(cls, config_init, new_population, population_size=100, genes_number: int = None):
         Chromosome.ConfigInit(config_init)
-
-        new_population = np.random.randint(2, size = (population_size, len(config_init['FullFeatures'])))
-
+        if new_population == None:
+            new_population = np.random.randint(2, size = (population_size, len(config_init['FullFeatures'])))
         return cls([Chromosome(chromo) for chromo in new_population])
-
-'''
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
-# Read file by URL
-url = "http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat"
-data = pd.read_csv(url, header=None, sep = " ", )
-FullFeatures = ['Att_'+str(i) for i in range(1, data.shape[1])]
-TargetFeature = ['Target']
-data.columns = FullFeatures + TargetFeature
-scaler = MinMaxScaler()
-scaler.fit(data[FullFeatures])
-data[FullFeatures] = scaler.transform(data[FullFeatures])
-
-#np.random.seed(0)
-
-config = {'population_size': 100, 'offspring_ratio': 0.5,
-'crossover_probability': 0.5,
-'selection_method': {'type': 'roulette_wheel', 'k': 10},
-'crossover_method': {'type': '1point', 'parameters': None},
-'mutation_probability': 0.1, 'mutation_ratio': 0.1,
-'generations_number': 20, 'stop_criterion_depth': 20}
-
-
-config_init = {
-    'FullFeatures': FullFeatures,
-    'TargetFeature': TargetFeature,
-    'Table': data,
-    'ScoreType': 'accuracy_score',
-    'InitMethod': 'random_init'
-}
-
-population = Population.population_initialization(config_init, population_size = 100)
-solution, fitness, all_best_fitness = population.generate_populations(config=config, verbose=1)
-
-# draw fitness improving line
-import matplotlib.pyplot as plt
-epochs = np.arange(len(all_best_fitness))
-plt.plot(epochs, all_best_fitness)
-plt.xlabel('Epoch')
-plt.ylabel('Best fitness')
-plt.title('Genetic algorithm')
-plt.show()
-
-
-if __name__ == '__main__':
-
-    if config['optimize_function'] not in ['markovitz', 'markovitz_sqrt']:
-
-        # draw fitness improving line
-        epochs = np.arange(len(all_best_fitness))
-        plt.plot(epochs, all_best_fitness)
-        plt.xlabel('Epoch')
-        plt.ylabel('Best fitness')
-        plt.title('Genetic algorithm')
-        plt.show()
-
-        cs_type = 'rd' if config['crossover_method']['type'] == 'random' else '2p'
-        print(solution._weight)
-        print(fitness)
-        if config['optimize_function'] in ['sharp_coef', 'sharp_coef_sqrt']:
-            fitness = -fitness
-        fitness = np.asarray([fitness])
-        solution = np.reshape(solution._weight, (genes_number))
-        data = np.reshape(np.concatenate([fitness, solution]), (1,-1))
-        result = pd.DataFrame(data, columns=[config['optimize_function']] + list(df))
-        result.to_csv('result/result_' + path[path.rfind('/') + 1:-4] + '_' + config['optimize_function'] + '_' +
-                        cs_type + str(config['population_size']) + '.csv', index=False)
-    else:
-        pass
-'''

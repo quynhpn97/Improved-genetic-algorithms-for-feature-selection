@@ -1,4 +1,12 @@
 # GA-Initial
+import numpy as np
+import pandas as pd
+import copy
+from time import time
+from sklearn.model_selection import cross_val_score
+from sklearn import svm
+import random
+
 class GaInitialization:
     def __init__(self, config_cross, config_mutation):
         self.config_cross = config_cross
@@ -16,20 +24,20 @@ class GaInitialization:
         chosen_indexes = np.random.choice(len(children), size=self.config_mutation['_mutation_size'], replace=False)
         for i in range(len(children)):
             if i not in chosen_indexes:
-                new_children.append(copy.deepcopy(children[i]))
-                continue
-            chromosome = children[i]
-            if True:
-                print('\t\tStarting mutation {}th child'.format(len(new_children) + 1))
-            _mutation = bool(np.random.rand(1) <= self.config_mutation['_mutation_probability'])
-            if _mutation:
-                mutation_genes_indexe = np.random.choice(
-                                            np.arange(len(chromosome.FeatureSubset_En)),
-                                            size=1,
-                                            replace=False)
-                new_FeatureSubset_En = np.array(chromosome.FeatureSubset_En)
-                new_FeatureSubset_En[mutation_genes_indexe] = 1-chromosome.FeatureSubset_En[mutation_genes_indexe]
-                new_children.append(Chromosome(new_FeatureSubset_En))
+                new_children.append(children[i])
+            else:
+                chromosome = children[i]
+                _mutation = bool(np.random.rand(1) <= self.config_mutation['_mutation_probability'])
+                if _mutation:
+                    mutation_genes_indexe = np.random.choice(
+                                                np.arange(len(chromosome.FeatureSubset_En)),
+                                                size=1,
+                                                replace=False)
+                    new_FeatureSubset_En = np.array(chromosome.FeatureSubset_En)
+                    new_FeatureSubset_En[mutation_genes_indexe] = 1-chromosome.FeatureSubset_En[mutation_genes_indexe]
+                    new_children.append(Chromosome(new_FeatureSubset_En))
+                else:
+                    new_children.append(children[i])
         return new_children
 
     def crossover_1point(self, generation):
@@ -56,17 +64,21 @@ class GaInitialization:
         first_population = {'P':[], 'Q': []}
         Chromosome.ConfigInit(config_init)
         new_population = np.random.randint(2, size = (population_size, len(config_init['FullFeatures'])))
+
         P0 = [Chromosome(chromo) for chromo in new_population]
         first_population['P'].append(P0)
 
         # Trao đổi chéo + Đột biến
         children = self.crossover_1point(P0)
+
         new_children = self.mutation(children)
 
         # Q
         first_population['Q'].append(new_children)
 
         return first_population
+
+
 import random
 # check DominatedSolution
 def Dominated(x, y):
@@ -86,6 +98,7 @@ def Dominated(x, y):
 class Chromosome:
     def __init__(self, FeatureSubset_En):
         # Switcher: cross-validate, group-filter,...
+        self.model = svm.SVC(gamma='scale')
         self.cd_fitness = 0
         self.FeatureSubset_En = FeatureSubset_En
         self.decode()
@@ -110,14 +123,20 @@ class Chromosome:
                 self.FeatureSubset.append(j)
 
     def accuracy_score(self):
+        '''
+        X = self.Table[self.FeatureSubset]
+        y = self.Table[self.TargetFeature]
+        accuracy = cross_val_score(self.model, X.values, y.values.reshape(-1), scoring='roc_auc', cv = 10)
+        return accuracy.mean()
+        '''
+        return len(self.FeatureSubset_En) - len(self.FeatureSubset)
+
+    def number_feature_subset(self):
         X = self.Table[self.FeatureSubset]
         y = self.Table[self.TargetFeature]
         model = svm.SVC(gamma='scale')
-        accuracy = cross_val_score(model, X.values, y.values.reshape(-1), scoring='accuracy', cv = 3)
+        accuracy = cross_val_score(self.model, X.values, y.values.reshape(-1), scoring='f1', cv = 10)
         return accuracy.mean()
-
-    def number_feature_subset(self):
-        return len(self.FullFeatures) - len(self.FeatureSubset)
 
     @classmethod
     def ConfigInit(cls, ConfigChromosome):
@@ -132,7 +151,7 @@ class MOGA:
         if first_population is None:
             first_population = {'P': [], 'Q': []}
         self._generations = first_population
-        self._population_size = 50
+        self._population_size = 100
 
     def IdentifyParatoFront(self, population):
         F = {}
@@ -191,7 +210,6 @@ class MOGA:
                                 if id not in ma_idxes:
                                     cd_i[id,k] = (min(filter(lambda x: x > fitness[id, k],list(fitness[:, k]))) - min(filter(lambda x: x < fitness[id, k],fitness[:, k])))/(max(fitness[:, k])-min(fitness[:, k]))
                 cd_fitness = np.sum(cd_i, axis = 1)
-                print(cd_fitness)
                 for chrome, i in zip(F_i, range(cd_fitness.shape[0])):
                     chrome.cd_fitness = cd_fitness[i]
 
@@ -199,12 +217,13 @@ class MOGA:
         self.R = self._generations['P'][-1] + self._generations['Q'][-1]
         # Identify Parato Front F1, F2, ..., FK
         F = self.IdentifyParatoFront(self.R)
+
         next_population = []
         for k in range(1, len(F)+1):
             if len(next_population)+len(F['F'+str(k)]) <= self._population_size:
                 next_population.extend(F['F'+str(k)])
+
         self._generations['P'].append(next_population)
-        print(len(next_population))
         # Crowding Distance F1, F2, ..., Fk and cd_fitness
         self.CrowdingDistance(F)
 
@@ -307,50 +326,12 @@ class MOGA:
         depth = 0
         for epoch in range(self._generations_number):
             self.generate_next_population()
+        return [list(i.FeatureSubset_En) for i in self._generations['P'][-1]]
 
     @classmethod
     def population_initialization(cls, config_init, population_size):
-        config_cross = {'_cross_position': None, '_crossover_probability': 0.9, '_offspring_number': 20}
+        config_cross = {'_cross_position': None, '_crossover_probability': 0.9, '_offspring_number': 50}
         config_mutation = {'_mutation_size': 10, '_mutation_probability': 0.1}
         ga_init = GaInitialization(config_cross, config_mutation)
         first_population = ga_init.initial(config_init, population_size)
         return cls(first_population)
-
-'''
-import numpy as np
-import pandas as pd
-import copy
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import cross_val_score
-from sklearn import svm
-# Read file by URL
-url = "http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat"
-data = pd.read_csv(url, header=None, sep = " ", )
-FullFeatures = ['Att_'+str(i) for i in range(1, data.shape[1])]
-TargetFeature = ['Target']
-data.columns = FullFeatures + TargetFeature
-scaler = MinMaxScaler()
-scaler.fit(data[FullFeatures])
-data[FullFeatures] = scaler.transform(data[FullFeatures])
-
-
-config_init = {
-    'FullFeatures': FullFeatures,
-    'TargetFeature': TargetFeature,
-    'Table': data,
-    'ScoreType': ['accuracy_score', 'number_feature_subset'],
-    'InitMethod': 'random_init'
-}
-
-R = MOGA.population_initialization(config_init, population_size = 200)
-
-
-config = {'population_size': 200, 'offspring_ratio': 0.75,
-'crossover_probability': 0.9,
-'selection_method': {'type': 'roulette_wheel', 'k': 2},
-'crossover_method': {'type': '1point', 'parameters': None},
-'mutation_probability': 0.2, 'mutation_ratio': 0.1,
-'generations_number': 5, 'stop_criterion_depth': 5}
-
-R.generate_populations(config)
-'''
