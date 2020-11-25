@@ -4,7 +4,7 @@ Recently, researches on feature selection are mainly focused on two aspects: cri
 
 Here, let's focus on the Genetic Algorithm (GA) and its improvements for feature selection problem. Specifically, I deployed two modifications of Genetic Algorithm (GA) including Multiple Population Genetic Algorithm (MPGA) and Multi-Objective Genetic Algorithm (MOGA).
 
-Detail on:
+Detail: https://quynhpn97.github.io/blogs.github.io/projects/genetic_algorithm.html
 
 Results and comparison:
 <table>
