@@ -1,0 +1,255 @@
+import G6 from '@antv/g6';
+
+const fittingString = (str, maxWidth, fontSize) => {
+  const ellipsis = '...';
+  const ellipsisLength = G6.Util.getTextSize(ellipsis, fontSize)[0];
+  let currentWidth = 0;
+  let res = str;
+  const pattern = new RegExp('[\u4E00-\u9FA5]+'); // distinguish the Chinese charactors and letters
+  str.split('').forEach((letter, i) => {
+    if (currentWidth > maxWidth - ellipsisLength) return;
+    if (pattern.test(letter)) {
+      // Chinese charactors
+      currentWidth += fontSize;
+    } else {
+      // get the width of single letter according to the fontSize
+      currentWidth += G6.Util.getLetterWidth(letter, fontSize);
+    }
+    if (currentWidth > maxWidth - ellipsisLength) {
+      res = `${str.substr(0, i)}${ellipsis}`;
+    }
+  });
+  return res;
+};
+
+const container = document.getElementById('container');
+container.style.backgroundColor = '#2b2f33';
+
+const tooltip = new G6.Tooltip({
+  offsetX: 10,
+  offsetY: 10,
+  fixToNode: [1, 0.5],
+  // the types of items that allow the tooltip show up
+  // 允许出现 tooltip 的 item 类型
+  itemTypes: ['node', 'edge'],
+  // custom the tooltip's content
+  // 自定义 tooltip 内容
+  getContent: (e) => {
+    const outDiv = document.createElement('div');
+    outDiv.style.width = 'fit-content';
+    outDiv.style.height = 'fit-content';
+    const model = e.item.getModel();
+    if (e.item.getType() === 'node') {
+      outDiv.innerHTML = `${model.label}`;
+    } else {
+      const source = e.item.getSource();
+      const target = e.item.getTarget();
+      outDiv.innerHTML = `source：${source.getModel().id}<br/>target：${target.getModel().id}`;
+    }
+    return outDiv;
+  },
+});
+
+const colors = ['#db5e56',
+                '#db8a56',
+                '#dbb756',
+                '#d3db56',
+                '#a7db56',
+                '#7adb56',
+                '#56db5e',
+                '#56db8a',
+                '#56dbb7',
+                '#56d3db',
+                '#56a7db',
+                '#567adb',
+                '#5e56db',
+                '#8a56db',
+                '#b756db',
+                '#db56d3',
+                '#db56a7',
+                '#db567a'
+                ];
+const width = container.scrollWidth;
+const height = container.scrollHeight || 500;
+
+const lineDash = [4, 2, 1, 2];
+G6.registerEdge(
+  'line-dash',
+  {
+    afterDraw(cfg, group) {
+      // get the first shape in the group, it is the edge's path here=
+      const shape = group.get('children')[0];
+      let index = 0;
+      // Define the animation
+      shape.animate(
+        () => {
+          index++;
+          if (index > 9) {
+            index = 0;
+          }
+          const res = {
+            lineDash,
+            lineDashOffset: -index,
+          };
+          // returns the modified configurations here, lineDash and lineDashOffset here
+          return res;
+        },
+        {
+          repeat: true, // whether executes the animation repeatly
+          duration: 3000, // the duration for executing once
+        },
+      );
+    },
+  },
+  "quadratic",
+);
+
+const graph = new G6.Graph({
+  container: 'container',
+  width,
+  height,
+  modes: {
+    default: ['zoom-canvas', 'drag-canvas'],
+  },
+  plugins: [tooltip],
+  layout: {
+    type: 'comboCombined',
+    outerLayout: new G6.Layout['concentric']({sortBy: 'id'}),
+    comboPadding: (combo) => {
+      return 50;
+    },
+  },
+  defaultNode: {
+    size: 15,
+  },
+  defaultEdge: {
+    type: 'line-dash',
+    style:{
+      endArrow: {
+          path: 'M 0,0 L 10,5 L 10,-5 Z',
+        },
+    }
+  },
+  defaultCombo: {
+    style: {
+      opacity: 0.2,
+      lineDash: [2, 2],
+      lineWidth: 2,
+    },
+  },
+  nodeStateStyles: {
+    highlight: {
+      opacity: 1,
+      fill: '#0BE71B'
+    },
+    dark: {
+      opacity: 0.2,
+      fill: '#B1BCB1'
+    },
+  },
+  edgeStateStyles: {
+    highlight: {
+      stroke: '#0BE71B',
+      lineWidth: 5,
+      
+    },
+  },
+});
+
+function clearAllStats() {
+  graph.setAutoPaint(false);
+  graph.getNodes().forEach(function (node) {
+    graph.clearItemStates(node);
+  });
+  graph.getEdges().forEach(function (edge) {
+    graph.clearItemStates(edge);
+  });
+  graph.paint();
+  graph.setAutoPaint(true);
+}
+
+graph.on('node:mouseenter', function (e) {
+  const item = e.item;
+  graph.setAutoPaint(false);
+  graph.getNodes().forEach(function (node) {
+    graph.clearItemStates(node);
+    graph.setItemState(node, 'dark', true);
+  });
+  graph.setItemState(item, 'dark', false);
+  graph.setItemState(item, 'highlight', true);
+  graph.getEdges().forEach(function (edge) {
+    if (edge.getSource() === item) {
+      graph.setItemState(edge.getTarget(), 'dark', false);
+      graph.setItemState(edge.getTarget(), 'highlight', true);
+      graph.setItemState(edge, 'highlight', true);
+      edge.toFront();
+    } else {
+      graph.setItemState(edge, 'highlight', false);
+    }
+  });
+  graph.paint();
+  graph.setAutoPaint(true);
+});
+graph.on('node:mouseleave', clearAllStats);
+graph.on('canvas:click', clearAllStats);
+
+fetch('https://raw.githubusercontent.com/quynhpn97/Improved-genetic-algorithms-for-feature-selection/main/data-sub-v3.1.json')
+  .then((res) => res.json())
+  .then((data) => {
+    // const offsetDiff = 40;
+    // const multiEdgeType = 'quadratic';
+    // const singleEdgeType = 'line';
+    // const loopEdgeType = 'loop';
+    // G6.Util.processParallelEdges(data.edges, offsetDiff, multiEdgeType, singleEdgeType, loopEdgeType);
+    data.edges.forEach(edge =>{
+      if(edge.source === edge.target){
+        edge.type = 'loop';
+      };
+    edge.labelCfg = {
+      style: {
+        fontSize: 15,
+        fill: '#FEFFFE',
+        fontWeight: 300,
+      }
+      };
+    });
+    data.nodes.forEach(node => {
+      node.x = Math.random() * 1;
+      node.label = fittingString(node.id, 60, 12);
+      node.labelCfg = {
+        style: {
+          fontSize: 15,
+          fill: '#13CDC2',
+          fontWeight: 300,
+        }
+      };
+    });
+    let i = 0;
+    data.combos.forEach(combo =>{
+      if (!combo.style) {
+        combo.style = {};
+      };
+      combo.style.fill = colors[i];
+      combo.style.stroke = colors[i];
+      combo.labelCfg = {
+      style: {
+        fontSize: 15,
+        fill: '#db56a7',
+        fontWeight: 300,
+      }
+      };
+        i++;
+    });
+    graph.on('afterlayout', e => {
+      graph.fitView()
+    })
+    graph.data(data);
+    graph.render();
+  });
+
+if (typeof window !== 'undefined')
+  window.onresize = () => {
+    if (!graph || graph.get('destroyed')) return;
+    if (!container || !container.scrollWidth || !container.scrollHeight) return;
+    graph.changeSize(container.scrollWidth, container.scrollHeight);
+  };
